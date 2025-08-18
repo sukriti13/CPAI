@@ -1,0 +1,256 @@
+app:
+  description: ''
+  icon: 🤖
+  icon_background: '#FFEAD5'
+  mode: advanced-chat
+  name: WHO SDG
+  use_icon_as_answer_icon: false
+dependencies:
+- current_identifier: null
+  type: marketplace
+  value:
+    marketplace_plugin_unique_identifier: langgenius/ollama:0.0.6@f430f3eb959f4863b1e87171544a8fec179441b90deda5693c85f07712d2a68c
+- current_identifier: null
+  type: marketplace
+  value:
+    marketplace_plugin_unique_identifier: langgenius/xinference:0.0.5@f24040a5f10ca2d2724b1b345faf7a2a178a56ef9a7ad3faf9833bc1321f499b
+kind: app
+version: 0.3.0
+workflow:
+  conversation_variables: []
+  environment_variables: []
+  features:
+    file_upload:
+      allowed_file_extensions:
+      - .JPG
+      - .JPEG
+      - .PNG
+      - .GIF
+      - .WEBP
+      - .SVG
+      allowed_file_types:
+      - image
+      allowed_file_upload_methods:
+      - local_file
+      - remote_url
+      enabled: false
+      fileUploadConfig:
+        audio_file_size_limit: 50
+        batch_count_limit: 5
+        file_size_limit: 15
+        image_file_size_limit: 10
+        video_file_size_limit: 100
+        workflow_file_upload_limit: 10
+      image:
+        enabled: false
+        number_limits: 3
+        transfer_methods:
+        - local_file
+        - remote_url
+      number_limits: 3
+    opening_statement: ''
+    retriever_resource:
+      enabled: true
+    sensitive_word_avoidance:
+      enabled: false
+    speech_to_text:
+      enabled: false
+    suggested_questions: []
+    suggested_questions_after_answer:
+      enabled: false
+    text_to_speech:
+      enabled: false
+      language: ''
+      voice: ''
+  graph:
+    edges:
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: start
+        targetType: knowledge-retrieval
+      id: 1753776972576-source-1753777041625-target
+      source: '1753776972576'
+      sourceHandle: source
+      target: '1753777041625'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInLoop: false
+        sourceType: knowledge-retrieval
+        targetType: llm
+      id: 1753777041625-source-llm-target
+      source: '1753777041625'
+      sourceHandle: source
+      target: llm
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInLoop: false
+        sourceType: llm
+        targetType: answer
+      id: llm-source-answer-target
+      source: llm
+      sourceHandle: source
+      target: answer
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    nodes:
+    - data:
+        desc: ''
+        selected: false
+        title: Start
+        type: start
+        variables: []
+      height: 54
+      id: '1753776972576'
+      position:
+        x: 29
+        y: 101
+      positionAbsolute:
+        x: 29
+        y: 101
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 244
+    - data:
+        context:
+          enabled: true
+          variable_selector:
+          - '1753777041625'
+          - result
+        desc: ''
+        memory:
+          query_prompt_template: '{{#sys.query#}}
+
+
+            {{#sys.files#}}'
+          role_prefix:
+            assistant: ''
+            user: ''
+          window:
+            enabled: false
+            size: 10
+        model:
+          completion_params:
+            temperature: 0.7
+          mode: chat
+          name: gemma3:latest
+          provider: langgenius/ollama/ollama
+        prompt_template:
+        - id: 21cf031f-f105-4792-99ad-87c8b585d993
+          role: system
+          text: 'you are an helpful assistant. you only use the following context
+            as your learned knowledge, inside <context></context> XML tags.
+
+            <context>
+
+            {{#context#}}
+
+            </context>
+
+            when answer to user:
+
+            - if you don''t know just say you don''t know
+
+            -if you are not sure, ask for clarification
+
+            mention that the answer is obtained from the context
+
+            -if its not mentioned in the context you just say its out of syllabus'
+        selected: true
+        title: LLM
+        type: llm
+        variables: []
+        vision:
+          enabled: false
+      height: 90
+      id: llm
+      position:
+        x: 291.41635665238755
+        y: 420.1999999999999
+      positionAbsolute:
+        x: 291.41635665238755
+        y: 420.1999999999999
+      selected: true
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 244
+    - data:
+        answer: '{{#llm.text#}}'
+        desc: ''
+        selected: false
+        title: Answer
+        type: answer
+        variables: []
+      height: 105
+      id: answer
+      position:
+        x: 487.19999999999993
+        y: 558.6
+      positionAbsolute:
+        x: 487.19999999999993
+        y: 558.6
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 244
+    - data:
+        dataset_ids:
+        - saUCsXUGB6ZQ8vpZGczDEeiEObRJhaFTVkxTDrU/+hYbmG/YbOofiluZuGSoCJIS
+        - /JgLenaQtHiXrxVa6doKgn4MQKvANcChLvouJ2IFjiy0aY0c6wMSK6HW7haxgnKd
+        - IeHhwBejDQC/EYycHAxpzRnpghpClkfVri7E+xfCyS8Dy7UOFMRdHjzrkiuPQLNw
+        desc: ''
+        metadata_filtering_mode: automatic
+        metadata_model_config:
+          completion_params:
+            temperature: 0.7
+          mode: chat
+          name: gemma3:latest
+          provider: langgenius/ollama/ollama
+        multiple_retrieval_config:
+          reranking_enable: true
+          reranking_mode: reranking_model
+          reranking_model:
+            model: bge-reranker-base
+            provider: langgenius/xinference/xinference
+          score_threshold: null
+          top_k: 7
+          weights:
+            keyword_setting:
+              keyword_weight: 1
+            vector_setting:
+              embedding_model_name: nomic-embed-text:latest
+              embedding_provider_name: langgenius/ollama/ollama
+              vector_weight: 0
+        query_variable_selector:
+        - '1753776972576'
+        - sys.query
+        retrieval_mode: multiple
+        selected: false
+        title: Knowledge Retrieval
+        type: knowledge-retrieval
+      height: 148
+      id: '1753777041625'
+      position:
+        x: 178.81090443492508
+        y: 215.9945477825375
+      positionAbsolute:
+        x: 178.81090443492508
+        y: 215.9945477825375
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 244
+    viewport:
+      x: 45.65251373601592
+      y: 30.270941862038626
+      zoom: 0.8333333333333319
