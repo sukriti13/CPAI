@@ -1,5 +1,5 @@
 import pandas as pd
  # Assuming your multi-index is in the first few rows (header) and columns (index)
 df = pd.read_excel('/content/Table 1.xlsx', header=[0,1,2,3,4], index_col=None)
-# Or, save directly to a JSON file
+# save directly to a JSON file
 df.to_json('Annex2-4.json', orient='index', indent=4)
