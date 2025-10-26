@@ -1,0 +1,11 @@
+#steps to build a docker applicationa nd publish it on docker hub
+docker build -t <application name> .
+docker run --rm -p 5000:5000 <application name>
+docker login -u <Username>
+docker tag <application name> <Username>/<application name>
+docker push <Username>/<application name>
+#docker build -t docker-python-app .
+#docker run --rm -p 5000:5000 docker-python-app
+#docker login -u sukriti132
+#docker tag docker-python-app sukriti132/docker-python-app
+#docker push sukriti132/docker-python-app
