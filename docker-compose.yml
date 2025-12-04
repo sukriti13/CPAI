@@ -1,0 +1,325 @@
+# VaakShakti Deployment Guide
+
+This guide explains how to deploy and run the VaakShakti application using the published Docker images.
+
+## Prerequisites
+
+1. **Docker and Docker Compose** installed on your Linux system
+2. **Ollama** installed and running with the `mistral` model
+
+## Quick Start
+
+### Step 1: Install Ollama (if not already installed)
+
+```bash
+# Install Ollama
+curl -fsSL https://ollama.com/install.sh | sh
+
+# Pull the required model
+ollama pull mistral:latest
+
+# Verify Ollama is running
+ollama list
+```
+
+### Step 2: Create Deployment Directory
+
+```bash
+mkdir vaakshakti-app
+cd vaakshakti-app
+```
+
+### Step 3: Create docker-compose.yml
+
+Create a `docker-compose.yml` file with the following content:
+
+```yaml
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: vaakshakti_db
+      POSTGRES_USER: vaakshakti_user
+      POSTGRES_PASSWORD: setidure
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U vaakshakti_user -d vaakshakti_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis for Celery
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6380:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # FastAPI Backend
+  backend:
+    image: sukriti132/vaakshakti-backend:latest
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://vaakshakti_user:setidure@postgres/vaakshakti_db
+      - OLLAMA_HOST=http://host.docker.internal:11434
+      - REDIS_URL=redis://redis:6379/0
+      - SECRET_KEY=G6WE-FiLEbCtdgA7dXq0bYLkKWEGZUf5jTlB22D78Dg
+      - ALGORITHM=HS256
+      - ACCESS_TOKEN_EXPIRE_MINUTES=30
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./logs:/app/logs
+      - ./temp_uploads:/app/temp_uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  # React Frontend
+  frontend:
+    image: sukriti132/vaakshakti-frontend:latest
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend
+
+  # Celery Workers
+  celery-transcription:
+    image: sukriti132/vaakshakti-backend:latest
+    command: celery -A celery_app worker --loglevel=info --queues=transcription --concurrency=2 --prefetch-multiplier=1 --hostname=transcription@%h
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://vaakshakti_user:setidure@postgres/vaakshakti_db
+      - OLLAMA_HOST=http://host.docker.internal:11434
+      - REDIS_URL=redis://redis:6379/0
+    volumes:
+      - ./logs:/app/logs
+      - ./temp_uploads:/app/temp_uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  celery-audio:
+    image: sukriti132/vaakshakti-backend:latest
+    command: celery -A celery_app worker --loglevel=info --queues=audio_processing --concurrency=2 --prefetch-multiplier=1 --hostname=audio@%h
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://vaakshakti_user:setidure@postgres/vaakshakti_db
+      - OLLAMA_HOST=http://host.docker.internal:11434
+      - REDIS_URL=redis://redis:6379/0
+    volumes:
+      - ./logs:/app/logs
+      - ./temp_uploads:/app/temp_uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  celery-text:
+    image: sukriti132/vaakshakti-backend:latest
+    command: celery -A celery_app worker --loglevel=info --queues=text_analysis --concurrency=3 --prefetch-multiplier=1 --hostname=text@%h
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://vaakshakti_user:setidure@postgres/vaakshakti_db
+      - OLLAMA_HOST=http://host.docker.internal:11434
+      - REDIS_URL=redis://redis:6379/0
+    volumes:
+      - ./logs:/app/logs
+      - ./temp_uploads:/app/temp_uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  celery-llm:
+    image: sukriti132/vaakshakti-backend:latest
+    command: celery -A celery_app worker --loglevel=info --queues=llm_feedback --concurrency=2 --prefetch-multiplier=1 --hostname=llm@%h
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://vaakshakti_user:setidure@postgres/vaakshakti_db
+      - OLLAMA_HOST=http://host.docker.internal:11434
+      - REDIS_URL=redis://redis:6379/0
+    volumes:
+      - ./logs:/app/logs
+      - ./temp_uploads:/app/temp_uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  celery-aggregation:
+    image: sukriti132/vaakshakti-backend:latest
+    command: celery -A celery_app worker --loglevel=info --queues=aggregation --concurrency=1 --prefetch-multiplier=1 --hostname=aggregation@%h
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://vaakshakti_user:setidure@postgres/vaakshakti_db
+      - OLLAMA_HOST=http://host.docker.internal:11434
+      - REDIS_URL=redis://redis:6379/0
+    volumes:
+      - ./logs:/app/logs
+      - ./temp_uploads:/app/temp_uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  celery-notifications:
+    image: sukriti132/vaakshakti-backend:latest
+    command: celery -A celery_app worker --loglevel=info --queues=notifications --concurrency=1 --prefetch-multiplier=1 --hostname=notifications@%h
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://vaakshakti_user:setidure@postgres/vaakshakti_db
+      - OLLAMA_HOST=http://host.docker.internal:11434
+      - REDIS_URL=redis://redis:6379/0
+    volumes:
+      - ./logs:/app/logs
+      - ./temp_uploads:/app/temp_uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+volumes:
+  postgres_data:
+```
+
+### Step 4: Start the Application
+
+```bash
+# Pull the images (optional, docker-compose will do this automatically)
+docker compose pull
+
+# Start all services
+docker compose up -d
+
+# Check the status
+docker compose ps
+```
+
+### Step 5: Access the Application
+
+- **Frontend:** http://localhost:8080
+- **Backend API:** http://localhost:8000
+- **API Documentation:** http://localhost:8000/docs
+
+### Step 6: Create Your First User
+
+Register a user through the frontend at http://localhost:8080, or use the API:
+
+```bash
+curl -X POST http://localhost:8080/api/v1/users/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "your@email.com",
+    "password": "yourpassword",
+    "full_name": "Your Name"
+  }'
+```
+
+## Managing the Application
+
+### View Logs
+
+```bash
+# All services
+docker compose logs -f
+
+# Specific service
+docker compose logs -f backend
+docker compose logs -f celery-transcription
+```
+
+### Stop the Application
+
+```bash
+docker compose down
+```
+
+### Stop and Remove All Data
+
+```bash
+docker compose down -v
+```
+
+### Update to Latest Version
+
+```bash
+docker compose pull
+docker compose up -d
+```
+
+## Troubleshooting
+
+### Ollama Connection Issues
+
+If you see errors about connecting to Ollama:
+
+1. Ensure Ollama is running: `ollama list`
+2. Verify the model is available: `ollama pull mistral:latest`
+3. Check if Ollama is accessible: `curl http://localhost:11434/api/tags`
+
+### Database Issues
+
+If the database fails to start:
+
+```bash
+# Remove the volume and restart
+docker compose down -v
+docker compose up -d
+```
+
+### Port Conflicts
+
+If ports 8000, 8080, 5432, or 6380 are already in use, modify the port mappings in `docker-compose.yml`:
+
+```yaml
+ports:
+  - "NEW_PORT:CONTAINER_PORT"
+```
+
+## Environment Variables
+
+You can customize the following environment variables in the `docker-compose.yml`:
+
+- `SECRET_KEY`: Change this to a secure random string
+- `POSTGRES_PASSWORD`: Change the database password
+- `ACCESS_TOKEN_EXPIRE_MINUTES`: Token expiration time
+
+## System Requirements
+
+- **RAM:** Minimum 4GB, recommended 8GB
+- **Disk:** Minimum 10GB free space
+- **CPU:** 2+ cores recommended
+- **OS:** Linux with Docker support
+
+## Notes
+
+- The application requires Ollama to be running on the host machine
+- First-time startup may take a few minutes as images are pulled
+- Database data persists in a Docker volume named `postgres_data`
