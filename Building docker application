@@ -1,4 +1,4 @@
-#steps to build a docker applicationa nd publish it on docker hub
+#steps to build a docker applicationa and publish it on docker hub
 docker build -t <application name> .
 docker run --rm -p 5000:5000 <application name>
 docker login -u <Username>
